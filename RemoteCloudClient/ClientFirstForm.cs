@@ -7,11 +7,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using CommonClasses;
 
-namespace RemoteCloudProject
+namespace RemoteCloudClient
 {
     public partial class ClientFirstForm : Form
     {
+        private User user;
         public ClientFirstForm()
         {
             InitializeComponent();
@@ -42,11 +44,31 @@ namespace RemoteCloudProject
 
         private void signupButton_secondaryClick(object sender, EventArgs e)
         {
-            signupButton.Location = new Point(signupButton.Location.X, signupButton.Location.Y - 31);
-            signupButton.Click -= this.signupButton_secondaryClick;
-            signupButton.Click += new EventHandler(this.signupButton_Click);
+            User newUser;
 
-            User 
+            if (this.passwordBox.Text == this.repeatPassword.Text && this.passwordBox.Text.Length != 0)
+            {
+                newUser = new User(this.usernameBox.Text, this.passwordBox.Text, this.emailAddress.Text);
+
+                signupButton.Location = new Point(signupButton.Location.X, signupButton.Location.Y - 31);
+                signupButton.Click += new EventHandler(this.signupButton_Click);
+                signupButton.Click -= this.signupButton_secondaryClick;
+                this.user = newUser;
+
+                repeatPassword.Enabled = false;
+                emailAddress.Enabled = false;
+                loginButton.Enabled = true;
+
+                repeatPassword.Visible = false;
+                emailAddress.Visible = false;
+                repeatPasswordLabel.Visible = false;
+                emailAddressLabel.Visible = false;
+                loginButton.Visible = true;
+            }
+            else if (this.passwordBox.Text.Length == 0 || this.passwordBox.Text.Length == 0 || this.passwordBox.Text.Length == 0)
+            {
+                this.errorLabel.Text = "Passwords don't match!";
+            }
         }
     }
 }

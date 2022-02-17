@@ -1,5 +1,5 @@
 ﻿
-namespace RemoteCloudProject
+namespace RemoteCloudClient
 {
     partial class ClientFirstForm
     {
@@ -40,6 +40,7 @@ namespace RemoteCloudProject
             this.emailAddress = new System.Windows.Forms.TextBox();
             this.repeatPasswordLabel = new System.Windows.Forms.Label();
             this.emailAddressLabel = new System.Windows.Forms.Label();
+            this.errorLabel = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // label1
@@ -152,11 +153,22 @@ namespace RemoteCloudProject
             this.emailAddressLabel.Text = "E-mail Address";
             this.emailAddressLabel.Visible = false;
             // 
+            // errorLabel
+            // 
+            this.errorLabel.AutoSize = true;
+            this.errorLabel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.errorLabel.ForeColor = System.Drawing.Color.Red;
+            this.errorLabel.Location = new System.Drawing.Point(604, 61);
+            this.errorLabel.Name = "errorLabel";
+            this.errorLabel.Size = new System.Drawing.Size(0, 15);
+            this.errorLabel.TabIndex = 12;
+            // 
             // ClientFirstForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.errorLabel);
             this.Controls.Add(this.emailAddressLabel);
             this.Controls.Add(this.repeatPasswordLabel);
             this.Controls.Add(this.emailAddress);
@@ -188,6 +200,7 @@ namespace RemoteCloudProject
         private System.Windows.Forms.TextBox emailAddress;
         private System.Windows.Forms.Label repeatPasswordLabel;
         private System.Windows.Forms.Label emailAddressLabel;
+        private System.Windows.Forms.Label errorLabel;
     }
 }
 
