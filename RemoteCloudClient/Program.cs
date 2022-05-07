@@ -14,6 +14,7 @@ namespace RemoteCloudClient
         [STAThread]
         static void Main()
         {
+            AsynchronousClient.InitializeClient();
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

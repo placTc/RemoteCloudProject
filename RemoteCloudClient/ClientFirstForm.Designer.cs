@@ -78,7 +78,7 @@ namespace RemoteCloudClient
             this.passwordBox.Location = new System.Drawing.Point(298, 92);
             this.passwordBox.Name = "passwordBox";
             this.passwordBox.Size = new System.Drawing.Size(248, 23);
-            this.passwordBox.TabIndex = 4;
+            this.passwordBox.TabIndex = 5;
             this.passwordBox.UseSystemPasswordChar = true;
             // 
             // usernameBox
@@ -86,7 +86,7 @@ namespace RemoteCloudClient
             this.usernameBox.Location = new System.Drawing.Point(298, 61);
             this.usernameBox.Name = "usernameBox";
             this.usernameBox.Size = new System.Drawing.Size(248, 23);
-            this.usernameBox.TabIndex = 5;
+            this.usernameBox.TabIndex = 4;
             // 
             // usernameLabel
             // 
@@ -126,7 +126,6 @@ namespace RemoteCloudClient
             this.emailAddress.Name = "emailAddress";
             this.emailAddress.Size = new System.Drawing.Size(248, 23);
             this.emailAddress.TabIndex = 9;
-            this.emailAddress.UseSystemPasswordChar = true;
             this.emailAddress.Visible = false;
             // 
             // repeatPasswordLabel

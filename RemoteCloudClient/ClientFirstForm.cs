@@ -13,16 +13,29 @@ namespace RemoteCloudClient
 {
     public partial class ClientFirstForm : Form
     {
-        private User user;
+        User user;
         public ClientFirstForm()
         {
             InitializeComponent();
-            
         }
 
         private void loginButton_Click(object sender, EventArgs e)
         {
-
+            User newUser = new User(this.usernameBox.Text, this.passwordBox.Text, "");
+            string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeLoginRequest(newUser));
+            if (response == "1200")
+            {
+                this.user = newUser;
+                this.Hide();
+                var form2 = new DriveForm(this.user);
+                form2.Closed += (s, args) => this.Show();
+                form2.Show();
+            }
+            else
+            {
+                errorLabel.Visible = true;
+                errorLabel.Text = "Error logging in.";
+            }
         }
 
         private void signupButton_Click(object sender, EventArgs e)
@@ -49,25 +62,37 @@ namespace RemoteCloudClient
             if (this.passwordBox.Text == this.repeatPassword.Text && this.passwordBox.Text.Length != 0)
             {
                 newUser = new User(this.usernameBox.Text, this.passwordBox.Text, this.emailAddress.Text);
+                string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeSignupRequest(newUser));
+                if (response == "1202")
+                {
+                    signupButton.Location = new Point(signupButton.Location.X, signupButton.Location.Y - 31);
+                    signupButton.Click += new EventHandler(this.signupButton_Click);
+                    signupButton.Click -= this.signupButton_secondaryClick;
+                    this.user = newUser;
 
-                signupButton.Location = new Point(signupButton.Location.X, signupButton.Location.Y - 31);
-                signupButton.Click += new EventHandler(this.signupButton_Click);
-                signupButton.Click -= this.signupButton_secondaryClick;
-                this.user = newUser;
+                    repeatPassword.Enabled = false;
+                    emailAddress.Enabled = false;
+                    loginButton.Enabled = true;
 
-                repeatPassword.Enabled = false;
-                emailAddress.Enabled = false;
-                loginButton.Enabled = true;
+                    this.usernameBox.Text = "";
+                    this.passwordBox.Text = "";
+                    this.errorLabel.Text = "";
 
-                repeatPassword.Visible = false;
-                emailAddress.Visible = false;
-                repeatPasswordLabel.Visible = false;
-                emailAddressLabel.Visible = false;
-                loginButton.Visible = true;
+                    repeatPassword.Visible = false;
+                    emailAddress.Visible = false;
+                    repeatPasswordLabel.Visible = false;
+                    emailAddressLabel.Visible = false;
+                    loginButton.Visible = true;
+                }
+                else
+                {
+                    this.errorLabel.Text = "Error occured.";
+                }
+
             }
-            else if (this.passwordBox.Text.Length == 0 || this.passwordBox.Text.Length == 0 || this.passwordBox.Text.Length == 0)
+            else if (this.usernameBox.Text.Length == 0 || this.passwordBox.Text.Length == 0 || this.emailAddress.Text.Length == 0)
             {
-                this.errorLabel.Text = "Passwords don't match!";
+                this.errorLabel.Text = "Please fill in all of the details.";
             }
         }
     }

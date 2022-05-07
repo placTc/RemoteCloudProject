@@ -13,10 +13,10 @@ namespace RemoteCloudServer
 {
     public partial class ServerForm : Form
     {
-        private static AsynchronousSocketListener server = new AsynchronousSocketListener();
+        private static AsynchronousServer server = new AsynchronousServer();
         public ServerForm()
         {
-            Thread serverThread = new Thread(new ThreadStart(AsynchronousSocketListener.StartThreads));
+            Thread serverThread = new Thread(new ThreadStart(AsynchronousServer.StartThreads));
             serverThread.IsBackground = true;
             serverThread.Start();
 

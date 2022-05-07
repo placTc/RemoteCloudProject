@@ -14,14 +14,14 @@ namespace RemoteCloudClient
         // Client socket.  
         public Socket workSocket = null;
         // Size of receive buffer.  
-        public const int BufferSize = 256;
+        public const int BufferSize = 4096;
         // Receive buffer.  
         public byte[] buffer = new byte[BufferSize];
         // Received data string.  
         public StringBuilder sb = new StringBuilder();
     }
 
-    public class AsynchronousClient
+    public static class AsynchronousClient
     {
         // The port number for the remote device.  
         private const int port = 11000;
@@ -38,30 +38,23 @@ namespace RemoteCloudClient
         private static String response = String.Empty;
 
 
-        private static IPHostEntry ipHostInfo = Dns.GetHostEntry("host.contoso.com");
-        private static IPAddress ipAddress = ipHostInfo.AddressList[0];
+        private static IPAddress ipAddress = IPAddress.Loopback;
         private static IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
 
-        public AsynchronousClient()
+        private static Socket client;
+
+        public static void InitializeClient()
         {
             // Connect to a remote device.  
             try
             {
                 // Create a TCP/IP socket.  
-                Socket client = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                client = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
                 // Connect to the remote endpoint.  
                 client.BeginConnect(remoteEP,
                     new AsyncCallback(ConnectCallback), client);
                 connectDone.WaitOne();
-
-                //// Send test data to the remote device.  
-                //Send(client, "This is a test<EOF>");
-                //sendDone.WaitOne();
-
-                //// Receive the response from the remote device.  
-                //Receive(client);
-                //receiveDone.WaitOne();
             }
             catch (Exception e)
             {
@@ -69,7 +62,20 @@ namespace RemoteCloudClient
             }
         }
 
+        public static string SendReceive(string data)
+        {
+            // Send test data to the remote device.  
+            Send(data);
+            sendDone.WaitOne();
 
+            // Receive the response from the remote device.  
+            Receive();
+            receiveDone.WaitOne();
+
+            sendDone.Reset(); // resetting for next sending
+            receiveDone.Reset();
+            return response;
+        }
 
         private static void ConnectCallback(IAsyncResult ar)
         {
@@ -93,7 +99,7 @@ namespace RemoteCloudClient
             }
         }
 
-        private static void Receive(Socket client)
+        public static void Receive()
         {
             try
             {
@@ -126,16 +132,10 @@ namespace RemoteCloudClient
                 if (bytesRead > 0)
                 {
                     // There might be more data, so store the data received so far.  
-                    state.sb.Append(Encoding.ASCII.GetString(state.buffer, 0, bytesRead));
+                    state.sb.Append(Encoding.UTF8.GetString(state.buffer, 0, bytesRead));
 
-                    // Get the rest of the data.  
-                    client.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
-                        new AsyncCallback(ReceiveCallback), state);
-                }
-                else
-                {
                     // All the data has arrived; put it in response.  
-                    if (state.sb.Length > 1)
+                    if (state.sb.Length > 0)
                     {
                         response = state.sb.ToString();
                     }
@@ -149,16 +149,20 @@ namespace RemoteCloudClient
             }
         }
 
-        private static void Send(Socket client, String data)
+        public static void Send(String data)
         {
             // Convert the string data to byte data using ASCII encoding.  
-            byte[] byteData = Encoding.ASCII.GetBytes(data);
+            byte[] byteData = Encoding.UTF8.GetBytes(data);
 
             // Begin sending the data to the remote device.  
             client.BeginSend(byteData, 0, byteData.Length, 0,
                 new AsyncCallback(SendCallback), client);
         }
-
+        private static void SendFile(string path)
+        {
+            // Begin sending the file to the remote device
+            client.BeginSendFile(path, new AsyncCallback(SendCallback), client);
+        }
         private static void SendCallback(IAsyncResult ar)
         {
             try

@@ -6,13 +6,14 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using CommonClasses;
 
 namespace RemoteCloudServer
 {
     public class StateObject
     {
         // Size of receive buffer.  
-        public const int BufferSize = 1024;
+        public const int BufferSize = 4096;
 
         // Receive buffer.  
         public byte[] buffer = new byte[BufferSize];
@@ -24,39 +25,43 @@ namespace RemoteCloudServer
         public Socket workSocket = null;
     }
 
-    public class AsynchronousSocketListener
+    public class AsynchronousServer
     {
         // Thread signal.  
         public static ManualResetEvent allDone = new ManualResetEvent(false);
+        public static ManualResetEvent receiveDone = new ManualResetEvent(false);
 
-        private static List<Thread> _threads = new List<Thread>();
-        private static int _clientsCount = 1;
-        private static Mutex _threadListLock = new Mutex();
+        private static List<Thread> threads = new List<Thread>();
+        private static int clientsCount = 1;
+        private static Mutex threadListLock = new Mutex();
+        private static Mutex userHandlerLock = new Mutex();
 
-        public AsynchronousSocketListener()
+        private static List<User> loggedInUsers = new List<User>();
+
+        public AsynchronousServer()
         {
         }
         public static void StartThreads()
         {
             while(true)
             {
-                _threadListLock.WaitOne(); // take ownership of the mutex
-                if (_clientsCount > _threads.Count)
+                threadListLock.WaitOne(); // take ownership of the mutex
+                if (clientsCount > threads.Count)
                 {
-                    _threads.Add(new Thread(new ThreadStart(StartListening))); // start listening on a new client
-                    _threads.Last().IsBackground = true;
-                    _threads.Last().Start();
+                    threads.Add(new Thread(new ThreadStart(StartListening))); // start listening on a new client
+                    threads.Last().IsBackground = true;
+                    threads.Last().Start();
                 }
 
-                for(int i = 0; i < _threads.Count; i++) // removing finished garbage threads
+                for(int i = 0; i < threads.Count; i++) // removing finished garbage threads
                 {
-                    if(!_threads[i].IsAlive)
+                    if(!threads[i].IsAlive)
                     {
-                        _threads.RemoveAt(i);
+                        threads.RemoveAt(i);
                         i--;
                     }
                 }
-                _threadListLock.ReleaseMutex(); // release ownership of the mutex
+                threadListLock.ReleaseMutex(); // release ownership of the mutex
             }
         }
 
@@ -66,8 +71,7 @@ namespace RemoteCloudServer
             // Establish the local endpoint for the socket.  
             // The DNS name of the computer  
             // running the listener is "host.contoso.com".  
-            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-            IPAddress ipAddress = ipHostInfo.AddressList[0];
+            IPAddress ipAddress = IPAddress.Any;
             IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 11000);
 
             int userState = 0;
@@ -93,7 +97,6 @@ namespace RemoteCloudServer
                         new AsyncCallback(AcceptCallback),
                         listener);
 
-
                     // Wait until a connection is made before continuing.  
                     allDone.WaitOne();
                 }
@@ -104,7 +107,7 @@ namespace RemoteCloudServer
                 Console.WriteLine(e.ToString());
             }
 
-            _clientsCount--;
+            clientsCount--;
             Console.WriteLine("\nPress ENTER to continue...");
             Console.Read();
 
@@ -121,49 +124,67 @@ namespace RemoteCloudServer
             Socket handler = listener.EndAccept(ar);
 
             // Create the state object.  
-            StateObject state = new StateObject();
-            state.workSocket = handler;
-            handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
-                new AsyncCallback(ReadCallback), state);
+            while(true)
+            {
+                receiveDone.Reset();
+                StateObject state = new StateObject();
+                state.workSocket = handler;
+                handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
+                    new AsyncCallback(ReadCallback), state);
+                receiveDone.WaitOne();
+            }
         }
 
         public static void ReadCallback(IAsyncResult ar)
         {
-            String content = String.Empty;
+            try {
+                string content = string.Empty;
 
-            // Retrieve the state object and the handler socket  
-            // from the asynchronous state object.  
-            StateObject state = (StateObject)ar.AsyncState;
-            Socket handler = state.workSocket;
+                // Retrieve the state object and the handler socket  
+                // from the asynchronous state object.  
+                StateObject state = (StateObject)ar.AsyncState;
+                Socket handler = state.workSocket;
 
-            // Read data from the client socket.
-            int bytesRead = handler.EndReceive(ar);
+                // Read data from the client socket.
+                int bytesRead = handler.EndReceive(ar);
 
-            if (bytesRead > 0)
-            {
-                // There  might be more data, so store the data received so far.  
-                state.sb.Append(Encoding.ASCII.GetString(
-                    state.buffer, 0, bytesRead));
-
-                // Check for end-of-file tag. If it is not there, read
-                // more data.  
-                content = state.sb.ToString();
-                if (content.IndexOf("<EOF>") > -1)
+                if (bytesRead > 0)
                 {
-                    // All the data has been read from the
-                    // client. Display it on the console.  
+                    // There  might be more data, so store the data received so far.  
+                    state.sb.Append(Encoding.UTF8.GetString(
+                        state.buffer, 0, bytesRead));
+
+                    // Check for end-of-file tag. If it is not there, read
+                    // more data.  
+                    content = state.sb.ToString();
+
+                        // All the data has been read from the
+                        // client. Display it on the console.
                     Console.WriteLine("Read {0} bytes from socket. \n Data : {1}",
                         content.Length, content);
-                    // Echo the data back to the client.  
-                    Send(handler, content);
-                }
-                else
-                {
-                    // Not all data received. Get more.  
-                    handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
-                    new AsyncCallback(ReadCallback), state);
+
+                    try
+                    {
+                        string[] contentSplit = content.Split(';', 3);
+
+                        string response = HandleRequest(contentSplit[0], contentSplit[2], content);
+
+                        Send(handler, response);
+                        receiveDone.Set();
+                    }
+                    catch (SocketException ex)
+                    {
+                        Console.WriteLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        string response = "ERROR";
+                        Send(handler, response);
+                        receiveDone.Set();
+                    }
                 }
             }
+            catch (Exception e) { };
         }
 
 
@@ -171,7 +192,7 @@ namespace RemoteCloudServer
         private static void Send(Socket handler, String data)
         {
             // Convert the string data to byte data using ASCII encoding.  
-            byte[] byteData = Encoding.ASCII.GetBytes(data);
+            byte[] byteData = Encoding.UTF8.GetBytes(data);
 
             // Begin sending the data to the remote device.  
             handler.BeginSend(byteData, 0, byteData.Length, 0,
@@ -199,6 +220,51 @@ namespace RemoteCloudServer
             {
                 Console.WriteLine(e.ToString());
             }
+        }
+
+        private static string HandleRequest(string request, string content, string unsplitContent)
+        {
+            string reply = "";
+
+            userHandlerLock.WaitOne();
+            switch (int.Parse(request))
+            {
+                case 200:
+                    reply = RequestHandlers.HandleLoginRequest(content, ref loggedInUsers);
+                    break;
+                case 201:
+                    reply = RequestHandlers.HandleLogoutRequest(content, ref loggedInUsers);
+                    break;
+                case 202:
+                    reply = RequestHandlers.HandleSignupRequest(content);
+                    break;
+                case 300:
+                case 3300:
+                case 5300:
+                    reply = RequestHandlers.HandleFileUploadRequest(content, ref loggedInUsers, request);
+                    break;
+                case 301:
+                    reply = RequestHandlers.HandleFileDownloadRequest(content, ref loggedInUsers, request);
+                    break;
+                case 302:
+                    reply = RequestHandlers.HandleDeleteFileRequest(content, ref loggedInUsers);
+                    break;
+                case 310:
+                    reply = RequestHandlers.HandleMakeDirectoryRequest(content, ref loggedInUsers);
+                    break;
+                case 311:
+                    reply = RequestHandlers.HandleDeleteDirecotryRequest(content, ref loggedInUsers);
+                    break;
+                case 100:
+                    reply = RequestHandlers.HandleUpdateRequest(content, ref loggedInUsers);
+                    break;
+                default:
+                    reply = RequestHandlers.HandleGenericRequest(content);
+                    break;
+            }
+
+            userHandlerLock.ReleaseMutex();
+            return reply;
         }
     }
 }
