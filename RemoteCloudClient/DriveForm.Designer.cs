@@ -65,7 +65,6 @@
             // 
             // button2
             // 
-            this.button2.Enabled = false;
             this.button2.Location = new System.Drawing.Point(144, 371);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(126, 28);
@@ -166,9 +165,9 @@
             // 
             // progressBar1
             // 
-            this.progressBar1.Location = new System.Drawing.Point(121, 336);
+            this.progressBar1.Location = new System.Drawing.Point(144, 336);
             this.progressBar1.Name = "progressBar1";
-            this.progressBar1.Size = new System.Drawing.Size(667, 29);
+            this.progressBar1.Size = new System.Drawing.Size(644, 29);
             this.progressBar1.TabIndex = 12;
             this.progressBar1.Visible = false;
             // 

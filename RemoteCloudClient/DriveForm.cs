@@ -30,6 +30,8 @@ namespace RemoteCloudClient
             listView1.SmallImageList = testList;
 
             UpdateView(currentDirectory);
+
+            this.FormClosing += new FormClosingEventHandler(ManualLogOut);
         }
 
         private void UploadFile(object sender, EventArgs e)
@@ -38,7 +40,7 @@ namespace RemoteCloudClient
             fileDialog.ShowDialog();
             string filepath = fileDialog.FileName;
             string filename = Path.GetFileName(filepath);
-            string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeUploadFileRequest(currentDirectory + filename, user, "300"));
+            string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + filename, user, "300"));
             loadingLabel.Visible = true;
             progressBar1.Visible = true;
             HideShowControls(false);
@@ -49,8 +51,8 @@ namespace RemoteCloudClient
                 response = "4300";
                 byte[] temp = new byte[3000];
 
-                ConvertFileToB64(filepath, @"temp.b64");
-                FileStream fs = File.OpenRead(@"temp.b64");
+                ConvertFileToB64(filepath, filepath + @"_temp.b64");
+                FileStream fs = File.OpenRead(filepath + @"_temp.b64");
                 loadingLabel.Text = "Uploading";
                 progressBar1.Minimum = 0;
                 progressBar1.Maximum = (int)fs.Length;
@@ -59,16 +61,16 @@ namespace RemoteCloudClient
                     fs.Read(temp, 0, 3000);
                     temp = TrimEnd(temp);
                     progressBar1.Value += temp.Length;
-                    response = AsynchronousClient.SendReceive(RequestSerializer.SerializeUploadFileRequest(currentDirectory + filename, user, "3300", Encoding.UTF8.GetString(temp)));
+                    response = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + filename, user, "3300", Encoding.UTF8.GetString(temp)));
                     temp = new byte[3000];
                 }
                 loadingLabel.Text = "Processing";
                 fs.Close();
-                response = AsynchronousClient.SendReceive(RequestSerializer.SerializeUploadFileRequest(currentDirectory + filename, user, "5300"));
+                response = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + filename, user, "5300"));
                 if(response == "6300")
                 {
                     UpdateView(currentDirectory);
-                    File.Delete(@"temp.b64");
+                    File.Delete(filepath + @"_temp.b64");
                     loadingLabel.Visible = false;
                     progressBar1.Visible = false;
                     progressBar1.Value = 0;
@@ -81,7 +83,49 @@ namespace RemoteCloudClient
 
         private void DownloadFile(object sender, EventArgs e)
         {
+            try
+            {
+                var selection = listView1.SelectedItems[0];
+                if(selection.ImageKey == "fileImage")
+                {
+                    HideShowControls(false);
+                    FolderBrowserDialog folderBrowser = new FolderBrowserDialog();
+                    folderBrowser.ShowDialog();
+                    File.Create(folderBrowser.SelectedPath + @"\" + selection.Text + ".b64").Close();
+                    string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + selection.Text, user, "301"));
+                    string[] splitResponse = response.Split(";", 3);
+                    if(splitResponse[0] == "1301")
+                    {
+                        int chunks = int.Parse(splitResponse[2]);
+                        loadingLabel.Visible = true;
+                        progressBar1.Visible = true;
+                        progressBar1.Maximum = chunks;
+                        loadingLabel.Text = "Downloading";
+                        
 
+                        for(int i = 0; i <= chunks && splitResponse[0] != "2301"; i++)
+                        {
+                            splitResponse = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + selection.Text, user, "3301", i.ToString())).Split(';', 3);
+                            File.AppendAllText(folderBrowser.SelectedPath + @"\" + selection.Text + ".b64", splitResponse[2]);
+                            progressBar1.Value = i;
+                        }
+
+                        loadingLabel.Text = "Processing";
+
+                        response = AsynchronousClient.SendReceive(RequestSerializer.SerializeFileRequest(currentDirectory + selection.Text, user, "5301"));
+                        if (response == "6301")
+                        {
+                            ConvertFileFromB64(folderBrowser.SelectedPath + @"\" + selection.Text + ".b64", folderBrowser.SelectedPath + @"\" + selection.Text);
+                            File.Delete(folderBrowser.SelectedPath + @"\" + selection.Text + ".b64");
+                            loadingLabel.Visible = false;
+                            progressBar1.Visible = false;
+                            progressBar1.Value = 0;
+                            HideShowControls(true);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { }
         }
 
         private void DeleteFile(object sender, EventArgs e)
@@ -94,7 +138,7 @@ namespace RemoteCloudClient
                     DialogResult res = MessageBox.Show("Are you sure you want to delete " + selection.Text + "?", "File Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                     if (res == DialogResult.Yes)
                     {
-                        string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeDirectoryRelatedRequest(currentDirectory + selection.Text + @"\", user, "302"));
+                        string response = AsynchronousClient.SendReceive(RequestSerializer.SerializeDirectoryRelatedRequest(currentDirectory + @"\" + selection.Text, user, "302"));
                         if(response == "1302")
                         {
                             UpdateView(currentDirectory);
@@ -271,6 +315,11 @@ namespace RemoteCloudClient
             button6.Enabled = state;
             button7.Enabled = state;
             button8.Enabled = state;
+        }
+
+        private void ManualLogOut(object sender, FormClosingEventArgs e)
+        {
+            AsynchronousClient.SendReceive(RequestSerializer.SerializeLogoutRequest(user.getName()));
         }
     }
 }

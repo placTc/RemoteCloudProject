@@ -155,7 +155,42 @@ namespace RemoteCloudServer
         }
         public static string HandleFileDownloadRequest(string data, ref List<User> userList, string start) // 301 1301 2301 | [3301] [4301] [5301] [6301]
         {
-            return "";
+            try
+            {
+                if (start == "301")
+                {
+                    string[] data2 = data.Split(";", 2);
+                    if (UserLoggedIn(data2[0], ref userList))
+                    {
+                        ConvertFileToB64(@"data" + data2[1], @"data" + data2[1] + ".b64");
+                        long size = new FileInfo(@"data" + data2[1] + ".b64").Length / 3000;
+                        return "1301;" + size.ToString().Length + ";" + size.ToString();
+                    }
+                    else return "2301";
+                }
+
+                if (start == "3301")
+                {
+                    string[] data2 = data.Split(";", 3);
+                    FileStream fs = File.OpenRead(@"data" + data2[1] + ".b64");
+                    byte[] temp = new byte[3000];
+                    fs.Position = int.Parse(data2[2]) * 3000;
+                    fs.Read(temp, 0, 3000);
+                    temp = TrimEnd(temp);
+                    fs.Close();
+                    return "4301;" + Encoding.UTF8.GetString(temp).Length + ";" + Encoding.UTF8.GetString(temp);
+                }
+
+                if(start == "5301")
+                {
+                    string[] data2 = data.Split(";", 2);
+                    File.Delete(@"data" + data2[1] + ".b64");
+                    return "6301";
+                }
+            }
+            catch(Exception e) { }
+
+            return "2301";
         }
         public static string HandleDeleteFileRequest(string data, ref List<User> userList) // 302 1302 2302
         {
@@ -282,7 +317,14 @@ namespace RemoteCloudServer
                 cs.CopyTo(fo);
             }
         }
+        public static byte[] TrimEnd(byte[] array)
+        {
+            int lastIndex = Array.FindLastIndex(array, b => b != 0);
 
+            Array.Resize(ref array, lastIndex + 1);
+
+            return array;
+        }
 
     }
 }

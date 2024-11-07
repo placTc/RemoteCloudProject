@@ -116,22 +116,29 @@ namespace RemoteCloudServer
         // ACCEPTING
         public static void AcceptCallback(IAsyncResult ar)
         {
-            // Signal the main thread to continue.
-            allDone.Set();
-
-            // Get the socket that handles the client request.  
-            Socket listener = (Socket)ar.AsyncState;
-            Socket handler = listener.EndAccept(ar);
-
-            // Create the state object.  
-            while(true)
+            try
             {
-                receiveDone.Reset();
-                StateObject state = new StateObject();
-                state.workSocket = handler;
-                handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
-                    new AsyncCallback(ReadCallback), state);
-                receiveDone.WaitOne();
+                // Signal the main thread to continue.
+                allDone.Set();
+
+                // Get the socket that handles the client request.  
+                Socket listener = (Socket)ar.AsyncState;
+                Socket handler = listener.EndAccept(ar);
+
+                // Create the state object.  
+                while (true)
+                {
+                    receiveDone.Reset();
+                    StateObject state = new StateObject();
+                    state.workSocket = handler;
+                    handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,
+                        new AsyncCallback(ReadCallback), state);
+                    receiveDone.WaitOne();
+                }
+            }
+            catch(Exception e)
+            {
+
             }
         }
 
@@ -244,6 +251,8 @@ namespace RemoteCloudServer
                     reply = RequestHandlers.HandleFileUploadRequest(content, ref loggedInUsers, request);
                     break;
                 case 301:
+                case 3301:
+                case 5301:
                     reply = RequestHandlers.HandleFileDownloadRequest(content, ref loggedInUsers, request);
                     break;
                 case 302:

@@ -40,7 +40,7 @@ namespace RemoteCloudClient
             return request;
         }
 
-        public static string SerializeUploadFileRequest(string filepath, User user, string requestType, string dataToSend = "")
+        public static string SerializeFileRequest(string filepath, User user, string requestType, string dataToSend = "")
         {
             string request = requestType + ";";
             string data = user.getName() + ";" + @"\" + user.getName() + filepath;
